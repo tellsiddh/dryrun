@@ -36,6 +36,7 @@ jobs:
 
       - name: Make DEB and RPM
         run: |
+          set -e
           mkdir -p dist
           PKGNAME="dryrun"
           DESC="dry run helper script"
@@ -46,24 +47,26 @@ jobs:
 
           # .deb
           fpm -s dir -t deb \
-            -n "${PKGNAME}" -v "${VER}" \
+            -n "${PKGNAME}" \
+            -v "${VER}" \
             --description "${DESC}" \
             --license "${LICENSE}" \
             --url "${URL}" \
             --maintainer "${MAINTAINER}" \
             --deb-no-default-config-files \
-            out/dryrun=/usr/local/bin/dryrun \
-            -p dist/${PKGNAME}_${VER}_amd64.deb
+            -p dist/${PKGNAME}_${VER}_amd64.deb \
+            out/dryrun=/usr/local/bin/dryrun
 
           # .rpm
           fpm -s dir -t rpm \
-            -n "${PKGNAME}" -v "${VER}" \
+            -n "${PKGNAME}" \
+            -v "${VER}" \
             --description "${DESC}" \
             --license "${LICENSE}" \
             --url "${URL}" \
             --maintainer "${MAINTAINER}" \
-            out/dryrun=/usr/local/bin/dryrun \
-            -p dist/${PKGNAME}-${VER}-1.x86_64.rpm
+            -p dist/${PKGNAME}-${VER}-1.x86_64.rpm \
+            out/dryrun=/usr/local/bin/dryrun
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
