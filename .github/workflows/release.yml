@@ -1,0 +1,81 @@
+name: Release Linux packages
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: ver
+        run: |
+          if [[ -f VERSION ]]; then
+            echo "VERSION=$(cat VERSION | tr -d '[:space:]')" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=0.0.0-dev" >> $GITHUB_OUTPUT
+          fi
+          echo "Version -> ${{ steps.ver.outputs.VERSION }}"
+
+      - name: Install packaging deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev build-essential rpm
+          sudo gem install --no-document fpm
+
+      - name: Prepare build dir
+        run: |
+          mkdir -p out
+          # Install as "dryrun" (drop .sh) in /usr/local/bin
+          install -Dm755 dryrun.sh out/dryrun
+
+      - name: Make DEB and RPM
+        run: |
+          mkdir -p dist
+          PKGNAME="dryrun"
+          DESC="dry run helper script"
+          LICENSE="MIT"
+          URL="https://github.com/${{ github.repository }}"
+          MAINTAINER="${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>"
+          VER="${{ steps.ver.outputs.VERSION }}"
+
+          # .deb
+          fpm -s dir -t deb \
+            -n "${PKGNAME}" -v "${VER}" \
+            --description "${DESC}" \
+            --license "${LICENSE}" \
+            --url "${URL}" \
+            --maintainer "${MAINTAINER}" \
+            --deb-no-default-config-files \
+            out/dryrun=/usr/local/bin/dryrun \
+            -p dist/${PKGNAME}_${VER}_amd64.deb
+
+          # .rpm
+          fpm -s dir -t rpm \
+            -n "${PKGNAME}" -v "${VER}" \
+            --description "${DESC}" \
+            --license "${LICENSE}" \
+            --url "${URL}" \
+            --maintainer "${MAINTAINER}" \
+            out/dryrun=/usr/local/bin/dryrun \
+            -p dist/${PKGNAME}-${VER}-1.x86_64.rpm
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: dist/*
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.VERSION }}
+          name: Release v${{ steps.ver.outputs.VERSION }}
+          files: dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
