@@ -68,7 +68,7 @@ jobs:
             --license "${LICENSE}" \
             --url "${URL}" \
             --maintainer "${MAINTAINER}" \
-            -p dist/${PKGNAME}-${VER}-1.x86_64.rpm \
+            -p dist/${PKGNAME}_${VER}_x86_64.rpm \
             out/dryrun=/usr/local/bin/dryrun
 
       - name: Upload build artifacts
