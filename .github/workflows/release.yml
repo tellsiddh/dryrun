@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   build-and-package:
     runs-on: ubuntu-latest
@@ -75,10 +78,13 @@ jobs:
           path: dist/*
 
       - name: Create GitHub Release
+        if: ${{ github.event_name == 'push' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.ver.outputs.VERSION }}
+          target_commitish: ${{ github.sha }}
           name: Release v${{ steps.ver.outputs.VERSION }}
+          generate_release_notes: true
           files: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
