@@ -183,26 +183,37 @@ case "$cmd" in
   cp)
     ((${#args[@]} >= 2)) || die "'cp' requires at least one source and a destination."
     dest="${args[-1]}"; sources=("${args[@]:0:${#args[@]}-1}")
+    info "Would copy:"
     for src in "${sources[@]}"; do
-      [ -e "$src" ] || warn "Source not found: $(printf "%q" "$src")"
-      if [ -d "$src" ] && ! printf '%s\n' "${flags[@]}" | grep -qE '(^| )-r($| )|(^| )-R($| )'; then
-        warn "Directory source without -r/-R: $(printf "%q" "$src")"
-      fi
+      for file in $src; do
+        if [ -e "$file" ]; then
+          info "  - $(printf "%q" "$file") -> $(printf "%q" "$dest")"
+        else
+          warn "Source not found: $(printf "%q" "$file")"
+        fi
+      done
     done
     if [ "${#sources[@]}" -gt 1 ] && [ ! -d "$dest" ]; then
       warn "Multiple sources into non-directory destination: $(printf "%q" "$dest")"
     fi
-    info "Would copy: $(join_q "${sources[@]}") -> $(printf "%q" "$dest")"
     ;;
 
   mv)
     ((${#args[@]} >= 2)) || die "'mv' requires at least one source and a destination."
     dest="${args[-1]}"; sources=("${args[@]:0:${#args[@]}-1}")
-    for src in "${sources[@]}"; do [ -e "$src" ] || warn "Source not found: $(printf "%q" "$src")"; done
+    info "Would move:"
+    for src in "${sources[@]}"; do
+      for file in $src; do
+        if [ -e "$file" ]; then
+          info "  - $(printf "%q" "$file") -> $(printf "%q" "$dest")"
+        else
+          warn "Source not found: $(printf "%q" "$file")"
+        fi
+      done
+    done
     if [ "${#sources[@]}" -gt 1 ] && [ ! -d "$dest" ]; then
       warn "Multiple sources into non-directory destination: $(printf "%q" "$dest")"
     fi
-    info "Would move:  $(join_q "${sources[@]}") -> $(printf "%q" "$dest")"
     ;;
 
   mkdir)
