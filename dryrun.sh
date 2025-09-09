@@ -82,6 +82,75 @@ need() {
   fi
 }
 
+# Handle chmod and chown with better descriptions
+get_numeric_perms_description() {
+  local mode="$1"
+  local -A perms=(
+    [0]="---" [1]="--x" [2]="-w-" [3]="-wx"
+    [4]="r--" [5]="r-x" [6]="rw-" [7]="rwx"
+  )
+  local owner_perm=${perms[${mode:0:1}]}
+  local group_perm=${perms[${mode:1:1}]}
+  local other_perm=${perms[${mode:2:1}]}
+  echo "'$owner_perm$group_perm$other_perm' (owner: $owner_perm, group: $group_perm, others: $other_perm)"
+}
+
+handle_chown() {
+  ug="${args[0]:-}"; files=("${args[@]:1}")
+  [[ -n "${ug}" && ${#files[@]} -gt 0 ]] || die "Usage: chown <user[:group]> <files>"
+
+  for f in "${files[@]}"; do
+    if [ ! -e "$f" ]; then
+      die "Not found: $(printf "%q" "$f")"
+    fi
+
+    current_user=$(stat -c '%U' "$f" 2>/dev/null || echo 'unknown')
+    current_group=$(stat -c '%G' "$f" 2>/dev/null || echo 'unknown')
+
+    info "Current ownership for $(printf "%q" "$f"): $current_user:$current_group"
+    info "Would change ownership to $ug for $(printf "%q" "$f")"
+  done
+}
+
+handle_chmod() {
+  mode="${args[0]:-}"; files=("${args[@]:1}")
+  [[ -n "${mode}" && ${#files[@]} -gt 0 ]] || die "Usage: chmod <mode> <files>"
+
+  local desc=""
+  local op="${mode:0:1}"
+  local perms="${mode:1}"
+
+  if [[ "$op" == "+" || "$op" == "-" ]] && [[ "$perms" =~ ^[0-7]{3}$ ]]; then
+    local perms_desc=$(get_numeric_perms_description "$perms")
+    if [[ "$op" == "+" ]]; then
+      desc="add permissions: $perms_desc"
+    else
+      desc="remove permissions: $perms_desc"
+    fi
+  elif [[ "$mode" =~ ^[0-7]{3}$ ]]; then
+    desc="change permissions to $(get_numeric_perms_description "$mode")"
+  else
+    case "$mode" in
+      +x)  desc="add execute permission";;
+      -x)  desc="remove execute permission";;
+      +w)  desc="add write permission";;
+      -w)  desc="remove write permission";;
+      +r)  desc="add read permission";;
+      -r)  desc="remove read permission";;
+      *)   desc="change permissions";;
+    esac
+  fi
+
+  for f in "${files[@]}"; do
+    if [ -e "$f" ]; then
+      current_perms=$(stat -c '%a' "$f" 2>/dev/null || echo 'unknown')
+      info "Current permissions for $(printf "%q" "$f"): $current_perms"
+      info "Would $desc to $mode for $(printf "%q" "$f")"
+    else
+      die "Not found: $(printf "%q" "$f")"
+    fi
+  done
+}
 
 if [[ "$cmd" == "syntax" ]]; then
   script="${args[0]:-}"
@@ -243,17 +312,9 @@ case "$cmd" in
     for t in "${targets[@]}"; do [ -e "$t" ] && info "Would list: $(printf "%q" "$t")" || die "Not found: $(printf "%q" "$t")"; done
     ;;
 
-  chmod)
-    mode="${args[0]:-}"; files=("${args[@]:1}")
-    [[ -n "${mode}" && ${#files[@]} -gt 0 ]] || die "Usage: chmod <mode> <files>"
-    for f in "${files[@]}"; do [ -e "$f" ] && info "Would chmod $mode $(printf "%q" "$f")" || die "Not found: $(printf "%q" "$f")"; done
-    ;;
+  chmod) handle_chmod ;;
 
-  chown)
-    ug="${args[0]:-}"; files=("${args[@]:1}")
-    [[ -n "${ug}" && ${#files[@]} -gt 0 ]] || die "Usage: chown <user[:group]> <files>"
-    for f in "${files[@]}"; do [ -e "$f" ] && info "Would chown $ug $(printf "%q" "$f")" || die "Not found: $(printf "%q" "$f")"; done
-    ;;
+  chown) handle_chown ;;
 
   grep)
     pat="${args[0]:-}"; files=("${args[@]:1}")
